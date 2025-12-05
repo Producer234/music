@@ -14,7 +14,7 @@ def start_panel(_):
         [
             InlineKeyboardButton(
                 text=_["S_B_5"],
-                url="https://github.com/DeadlineTech/music"
+                url="https://t.me/owner_of_pr"
             )
         ]
     ]
@@ -41,7 +41,7 @@ def private_panel(_):
         ],
         [
             InlineKeyboardButton(text=_["S_B_7"], url=config.SUPPORT_CHANNEL), 
-            InlineKeyboardButton(text=_["S_B_5"], url="https://github.com/DeadlineTech/music")
+            InlineKeyboardButton(text=_["S_B_5"], url="https://t.me/owner_of_pr")
         ]
     ]
     return buttons
