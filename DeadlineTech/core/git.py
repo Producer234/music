@@ -1,41 +1,20 @@
-
-
-# ==========================================================
-# 🎧 Public Open-Source VC Player Music Bot (Cookies Based)
-# 🛠️ Maintained by Team DeadlineTech | Lead Developer: @Its_damiann
-# 🔓 Licensed for Public Use — All Rights Reserved © Team DeadlineTech
-#
-# This file is part of a publicly available and open-source Telegram music bot
-# developed by Team DeadlineTech. It offers high-quality streaming in Telegram voice
-# chats using YouTube as a source, supported by session-based assistant accounts and
-# YouTube cookie integration for improved access and performance.
-#
-# 💡 This source code is released for educational and community purposes. You're free
-# to study, modify, and deploy it under fair and respectful usage. However, any misuse,
-# removal of credits, or false ownership claims will be considered a violation of our
-# community standards and may lead to denial of support or blacklisting.
-#
-# 🔗 Looking for powerful performance with stable APIs? Get access to the official
-# premium API service: https://DeadlineTech.site
-#
-# ❤️ Openly built for the community, but proudly protected by the passion of its creators.
-# ==========================================================
-
-
-
 import asyncio
 import shlex
+import shutil
 from typing import Tuple
 
-from git import Repo
-from git.exc import GitCommandError, InvalidGitRepositoryError
+try:
+    from git import Repo
+    from git.exc import GitCommandError, InvalidGitRepositoryError
+except ImportError:
+    Repo = None
 
 import config
-
 from ..logging import LOGGER
 
 
 def install_req(cmd: str) -> Tuple[str, str, int, int]:
+    """Install requirements asynchronously."""
     async def install_requirements():
         args = shlex.split(cmd)
         process = await asyncio.create_subprocess_exec(
@@ -55,42 +34,40 @@ def install_req(cmd: str) -> Tuple[str, str, int, int]:
 
 
 def git():
+    """Safely initialize and update repo if Git is available."""
+    # Skip entirely if Git or GitPython is not available
+    if not shutil.which("git") or Repo is None:
+        LOGGER(__name__).info("Git not found, skipping upstream updates.")
+        return
+
     REPO_LINK = config.UPSTREAM_REPO
     if config.GIT_TOKEN:
         GIT_USERNAME = REPO_LINK.split("com/")[1].split("/")[0]
         TEMP_REPO = REPO_LINK.split("https://")[1]
         UPSTREAM_REPO = f"https://{GIT_USERNAME}:{config.GIT_TOKEN}@{TEMP_REPO}"
     else:
-        UPSTREAM_REPO = config.UPSTREAM_REPO
+        UPSTREAM_REPO = REPO_LINK
+
     try:
         repo = Repo()
-        LOGGER(__name__).info(f"[+] Git client located. Initializing VPS deployment process..")
+        LOGGER(__name__).info("Git Client Found [VPS DEPLOYER]")
     except GitCommandError:
-        LOGGER(__name__).info(f"Invalid Git Command")
+        LOGGER(__name__).info("Invalid Git Command")
     except InvalidGitRepositoryError:
-        repo = Repo.init()
-        if "origin" in repo.remotes:
-            origin = repo.remote("origin")
-        else:
-            origin = repo.create_remote("origin", UPSTREAM_REPO)
-        origin.fetch()
-        repo.create_head(
-            config.UPSTREAM_BRANCH,
-            origin.refs[config.UPSTREAM_BRANCH],
-        )
-        repo.heads[config.UPSTREAM_BRANCH].set_tracking_branch(
-            origin.refs[config.UPSTREAM_BRANCH]
-        )
-        repo.heads[config.UPSTREAM_BRANCH].checkout(True)
+        # Initialize repo safely
         try:
-            repo.create_remote("origin", config.UPSTREAM_REPO)
-        except BaseException:
-            pass
-        nrs = repo.remote("origin")
-        nrs.fetch(config.UPSTREAM_BRANCH)
-        try:
-            nrs.pull(config.UPSTREAM_BRANCH)
-        except GitCommandError:
-            repo.git.reset("--hard", "FETCH_HEAD")
-        install_req("pip3 install --no-cache-dir -r requirements.txt")
-        LOGGER(__name__).info(f"Fetching updates from upstream repository...")
+            repo = Repo.init()
+            origin = repo.remotes.origin if "origin" in repo.remotes else repo.create_remote("origin", UPSTREAM_REPO)
+            origin.fetch()
+            repo.create_head(config.UPSTREAM_BRANCH, origin.refs[config.UPSTREAM_BRANCH])
+            repo.heads[config.UPSTREAM_BRANCH].set_tracking_branch(origin.refs[config.UPSTREAM_BRANCH])
+            repo.heads[config.UPSTREAM_BRANCH].checkout(True)
+            try:
+                origin.fetch(config.UPSTREAM_BRANCH)
+                origin.pull(config.UPSTREAM_BRANCH)
+            except GitCommandError:
+                repo.git.reset("--hard", "FETCH_HEAD")
+            install_req("pip3 install --no-cache-dir -r requirements.txt")
+            LOGGER(__name__).info("Fetching updates from upstream repository...")
+        except Exception as e:
+            LOGGER(__name__).warning(f"Failed to update repository: {e}")
